@@ -62,7 +62,7 @@ export default function SettingsPage({ fetchSettingsStatus }) {
       setCameras(videoDevices);
       
       // Load saved camera selection from localStorage if exists
-      const savedCam = localStorage.getItem('moneyvision_camera_id');
+      const savedCam = localStorage.getItem('clearnote_camera_id');
       if (savedCam && videoDevices.some(d => d.deviceId === savedCam)) {
         setSelectedCamera(savedCam);
       } else if (videoDevices.length > 0) {
@@ -100,7 +100,7 @@ export default function SettingsPage({ fetchSettingsStatus }) {
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
     
-    const sampleText = "MoneyVision AI audio configuration test. Two notes of 500 rupees detected.";
+    const sampleText = "ClearNote AI audio configuration test. Two notes of 500 rupees detected.";
     const utterance = new SpeechSynthesisUtterance(sampleText);
     utterance.rate = voiceRate;
     utterance.pitch = voicePitch;
@@ -177,7 +177,7 @@ export default function SettingsPage({ fetchSettingsStatus }) {
         
         // Save camera selection to localStorage
         if (selectedCamera) {
-          localStorage.setItem('moneyvision_camera_id', selectedCamera);
+          localStorage.setItem('clearnote_camera_id', selectedCamera);
         }
 
         setSuccessMsg('Settings updated and stored securely on the server!');

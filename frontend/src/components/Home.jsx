@@ -22,7 +22,7 @@ export default function Home({ setTab }) {
 
         {/* Hero Subtitle */}
         <p className="text-neutral-400 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed">
-          Detect, classify, and count Indian Rupees in real time. moneyVision AI uses state-of-the-art serverless workflows to recognize ₹10 to ₹2000 notes instantly.
+          Detect, classify, and count Indian Rupees in real time. ClearNote AI uses state-of-the-art serverless workflows to recognize ₹10 to ₹2000 notes instantly.
         </p>
 
         {/* Scanning Animation Area */}
@@ -37,7 +37,7 @@ export default function Home({ setTab }) {
               <div className="w-8 h-8 rounded-full border border-emerald-500/30 flex items-center justify-center text-[10px] text-emerald-400 font-serif">RBI</div>
             </div>
             <div className="flex justify-center my-1">
-              <span className="text-neutral-500 text-[10px] tracking-widest font-mono">MONEYVISION AI</span>
+              <span className="text-neutral-500 text-[10px] tracking-widest font-mono">CLEARNOTE AI</span>
             </div>
             <div className="flex justify-between items-end">
               <div className="flex flex-col">

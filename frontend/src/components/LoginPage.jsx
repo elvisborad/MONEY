@@ -55,8 +55,8 @@ export default function LoginPage({ onLoginSuccess }) {
       }
 
       // Store credentials in localStorage
-      localStorage.setItem('moneyvision_token', data.token);
-      localStorage.setItem('moneyvision_username', data.username);
+      localStorage.setItem('clearnote_token', data.token);
+      localStorage.setItem('clearnote_username', data.username);
 
       if (isRegister) {
         setSuccessMsg('Account created successfully! Logging you in...');
@@ -87,7 +87,7 @@ export default function LoginPage({ onLoginSuccess }) {
             <Sparkles size={24} className="animate-pulse" />
           </div>
           <h1 className="text-2xl font-black tracking-wider text-white font-mono">
-            MONEYVISION <span className="text-neon-green">AI</span>
+            ClearNote <span className="text-neon-green">AI</span>
           </h1>
           <p className="text-xs text-neutral-400 mt-1 uppercase tracking-widest font-bold">
             Banknote Authenticity Scanner

@@ -20,7 +20,7 @@ export default function App() {
 
   // Check if API key is configured on the backend
   const checkSettingsStatus = async (authToken = null) => {
-    const token = authToken || localStorage.getItem('moneyvision_token');
+    const token = authToken || localStorage.getItem('clearnote_token');
     if (!token) return;
     try {
       const response = await fetch(`${API_BASE}/api/settings`, {
@@ -36,8 +36,8 @@ export default function App() {
   };
 
   const checkAuthStatus = async () => {
-    const savedToken = localStorage.getItem('moneyvision_token');
-    const savedUsername = localStorage.getItem('moneyvision_username');
+    const savedToken = localStorage.getItem('clearnote_token');
+    const savedUsername = localStorage.getItem('clearnote_username');
     if (savedToken && savedUsername) {
       try {
         const response = await fetch(`${API_BASE}/api/auth/me`, {
@@ -70,7 +70,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    const savedToken = localStorage.getItem('moneyvision_token');
+    const savedToken = localStorage.getItem('clearnote_token');
     if (savedToken) {
       try {
         await fetch(`${API_BASE}/api/auth/logout`, {
@@ -81,8 +81,8 @@ export default function App() {
         console.warn("Logout request failed:", err);
       }
     }
-    localStorage.removeItem('moneyvision_token');
-    localStorage.removeItem('moneyvision_username');
+    localStorage.removeItem('clearnote_token');
+    localStorage.removeItem('clearnote_username');
     setUser(null);
   };
 
@@ -117,11 +117,10 @@ export default function App() {
       {/* Background Decorative Glow (Top Right) */}
       <div className="absolute top-0 right-0 w-[450px] h-[450px] bg-[radial-gradient(circle,rgba(0,240,255,0.06)_0%,transparent_70%)] pointer-events-none z-0"></div>
 
-      {/* MOBILE HEADER NAVBAR */}
       <header className="md:hidden flex items-center justify-between px-5 py-4 border-b border-white/5 bg-dark-card/90 backdrop-blur-md sticky top-0 z-40">
         <div className="flex items-center gap-2">
           <Sparkles className="text-neon-green glow-text-green animate-pulse" size={20} />
-          <span className="font-black text-white text-lg tracking-wider font-mono">MONEYVISION <span className="text-neon-green">AI</span></span>
+          <span className="font-black text-white text-lg tracking-wider font-mono">ClearNote <span className="text-neon-green">AI</span></span>
         </div>
         
         <div className="flex items-center gap-3">
@@ -154,7 +153,7 @@ export default function App() {
               <Sparkles size={20} />
             </div>
             <div className="flex flex-col">
-              <span className="font-extrabold text-white text-base tracking-wider font-mono">MONEYVISION <span className="text-neon-green">AI</span></span>
+              <span className="font-extrabold text-white text-base tracking-wider font-mono">ClearNote <span className="text-neon-green">AI</span></span>
               <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Currency Scanner</span>
             </div>
           </div>

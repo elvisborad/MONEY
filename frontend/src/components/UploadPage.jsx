@@ -239,7 +239,7 @@ export default function UploadPage({ apiConfigured }) {
     if (!results || !results.annotated_image) return;
     const link = document.createElement('a');
     link.href = `data:image/jpeg;base64,${results.annotated_image}`;
-    link.download = `moneyvision_detect_${Date.now()}.jpg`;
+    link.download = `clearnote_detect_${Date.now()}.jpg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
