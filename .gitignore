@@ -1,0 +1,19 @@
+# Frontend dependencies and builds
+frontend/node_modules/
+frontend/dist/
+
+# Backend dependencies and virtual environments
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+backend/.env
+
+# Local SQLite databases
+backend/*.db
+
+# Logs and environment files
+*.log
+.env
+.DS_Store
+.vscode/
+.idea/
