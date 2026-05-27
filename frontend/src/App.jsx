@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Home as HomeIcon, Camera, Upload, History as HistoryIcon, BarChart3, Settings as SettingsIcon, Menu, X, Sparkles, AlertCircle } from 'lucide-react';
+import { Home as HomeIcon, Camera, Upload, History as HistoryIcon, BarChart3, Settings as SettingsIcon, Menu, X, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
 
 // Import Page Components
 import Home from './components/Home.jsx';
