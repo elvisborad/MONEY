@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Sliders, Globe, Camera, Save, RefreshCw, CheckCircle, AlertCircle, Volume2, Play } from 'lucide-react';
-import { API_BASE } from '../config';
+import { API_BASE, getAuthHeaders } from '../config';
 
 export default function SettingsPage({ fetchSettingsStatus }) {
   const [apiKey, setApiKey] = useState('');
@@ -29,7 +29,9 @@ export default function SettingsPage({ fetchSettingsStatus }) {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/settings`);
+      const response = await fetch(`${API_BASE}/api/settings`, {
+        headers: getAuthHeaders()
+      });
       if (response.ok) {
         const data = await response.json();
         setMaskedKey(data.api_key_masked || '');
@@ -163,7 +165,7 @@ export default function SettingsPage({ fetchSettingsStatus }) {
 
       const response = await fetch(`${API_BASE}/api/settings`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload)
       });
 

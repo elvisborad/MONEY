@@ -8,6 +8,7 @@ import UploadPage from './components/UploadPage.jsx';
 import HistoryPage from './components/HistoryPage.jsx';
 import AnalyticsPage from './components/AnalyticsPage.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
+import LoginPage from './components/LoginPage.jsx';
 import { API_BASE } from './config';
 
 export default function App() {
@@ -15,25 +16,75 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [apiConfigured, setApiConfigured] = useState(false);
   const [checkingConfig, setCheckingConfig] = useState(true);
+  const [user, setUser] = useState(null);
 
   // Check if API key is configured on the backend
-  const checkSettingsStatus = async () => {
+  const checkSettingsStatus = async (authToken = null) => {
+    const token = authToken || localStorage.getItem('moneyvision_token');
+    if (!token) return;
     try {
-      const response = await fetch(`${API_BASE}/api/settings`);
+      const response = await fetch(`${API_BASE}/api/settings`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (response.ok) {
         const data = await response.json();
         setApiConfigured(data.api_key_configured);
       }
     } catch (err) {
       console.warn("Could not check settings configuration status:", err);
-    } finally {
+    }
+  };
+
+  const checkAuthStatus = async () => {
+    const savedToken = localStorage.getItem('moneyvision_token');
+    const savedUsername = localStorage.getItem('moneyvision_username');
+    if (savedToken && savedUsername) {
+      try {
+        const response = await fetch(`${API_BASE}/api/auth/me`, {
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+        if (response.ok) {
+          setUser({ username: savedUsername, token: savedToken });
+          await checkSettingsStatus(savedToken);
+        } else {
+          handleLogout();
+        }
+      } catch (err) {
+        console.warn("Auth check failed, using cached session offline:", err);
+        setUser({ username: savedUsername, token: savedToken });
+      } finally {
+        setCheckingConfig(false);
+      }
+    } else {
       setCheckingConfig(false);
     }
   };
 
   useEffect(() => {
-    checkSettingsStatus();
+    checkAuthStatus();
   }, []);
+
+  const handleLoginSuccess = (username, token) => {
+    setUser({ username, token });
+    checkSettingsStatus(token);
+  };
+
+  const handleLogout = async () => {
+    const savedToken = localStorage.getItem('moneyvision_token');
+    if (savedToken) {
+      try {
+        await fetch(`${API_BASE}/api/auth/logout`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+      } catch (err) {
+        console.warn("Logout request failed:", err);
+      }
+    }
+    localStorage.removeItem('moneyvision_token');
+    localStorage.removeItem('moneyvision_username');
+    setUser(null);
+  };
 
   const tabs = [
     { id: 'home', label: 'Home', icon: HomeIcon },
@@ -48,6 +99,18 @@ export default function App() {
     setActiveTab(tabId);
     setMobileMenuOpen(false);
   };
+
+  if (checkingConfig) {
+    return (
+      <div className="min-h-screen bg-dark-bg flex items-center justify-center text-neon-green">
+        <RefreshCw size={36} className="animate-spin text-neon-blue" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
 
   return (
     <div className="flex min-h-screen bg-dark-bg text-gray-100 flex-col md:flex-row relative">
@@ -119,27 +182,41 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Configuration Notification Badge */}
-        <div className="pt-4 border-t border-white/5">
-          {checkingConfig ? (
-            <div className="flex items-center gap-2 text-xs text-neutral-500">
-              <span className="w-2 h-2 rounded-full bg-neutral-600 animate-pulse"></span>
-              Checking backend keys...
+        {/* User Info & Connection Badge */}
+        <div className="pt-4 border-t border-white/5 space-y-4">
+          <div className="flex items-center justify-between bg-neutral-900/40 p-2.5 rounded-xl border border-neutral-800/80">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 rounded-full bg-neon-green/10 border border-neon-green/25 flex items-center justify-center text-neon-green font-bold text-xs uppercase font-mono shrink-0">
+                {user.username ? user.username[0] : 'U'}
+              </div>
+              <span className="text-xs text-neutral-300 font-bold truncate max-w-[100px]" title={user.username}>
+                {user.username}
+              </span>
             </div>
-          ) : apiConfigured ? (
-            <div className="flex items-center gap-2 text-xs text-neutral-400 font-semibold px-3 py-2 rounded-lg bg-neon-green/5 border border-neon-green/20">
-              <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse"></span>
-              Roboflow Connected
-            </div>
-          ) : (
-            <div 
-              onClick={() => handleTabChange('settings')}
-              className="flex items-center gap-2 text-xs text-amber-500 font-bold px-3 py-2 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/10 transition-all duration-300"
+            <button
+              onClick={handleLogout}
+              className="text-[10px] text-red-400 hover:text-red-300 font-extrabold uppercase tracking-wider px-2 py-1.5 rounded bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/20 transition-all duration-300 cursor-pointer"
             >
-              <AlertCircle size={14} className="shrink-0" />
-              API Key Config Required
-            </div>
-          )}
+              Logout
+            </button>
+          </div>
+
+          <div>
+            {apiConfigured ? (
+              <div className="flex items-center gap-2 text-xs text-neutral-400 font-semibold px-3 py-2 rounded-lg bg-neon-green/5 border border-neon-green/20">
+                <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse"></span>
+                Roboflow Connected
+              </div>
+            ) : (
+              <div 
+                onClick={() => handleTabChange('settings')}
+                className="flex items-center gap-2 text-xs text-amber-500 font-bold px-3 py-2 rounded-lg bg-amber-500/5 border border-amber-500/20 cursor-pointer hover:bg-amber-500/10 transition-all duration-300"
+              >
+                <AlertCircle size={14} className="shrink-0" />
+                API Key Config Required
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 

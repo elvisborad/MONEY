@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, DollarSign, Trash2, FileSpreadsheet, Eye, X, Trash, FileImage, RefreshCw, ShieldAlert } from 'lucide-react';
-import { API_BASE } from '../config';
+import { API_BASE, getAuthHeaders } from '../config';
 
 export default function HistoryPage() {
   const [history, setHistory] = useState([]);
@@ -10,7 +10,9 @@ export default function HistoryPage() {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/history`);
+      const response = await fetch(`${API_BASE}/api/history`, {
+        headers: getAuthHeaders()
+      });
       if (response.ok) {
         const data = await response.json();
         setHistory(data);
@@ -30,7 +32,8 @@ export default function HistoryPage() {
     if (!window.confirm("Are you sure you want to delete this scan log?")) return;
     try {
       const response = await fetch(`${API_BASE}/api/history/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeaders()
       });
       if (response.ok) {
         setHistory(history.filter(item => item.id !== id));
@@ -44,7 +47,8 @@ export default function HistoryPage() {
     if (!window.confirm("WARNING: This will permanently delete ALL scan history. Are you sure?")) return;
     try {
       const response = await fetch(`${API_BASE}/api/history/clear`, {
-        method: 'POST'
+        method: 'POST',
+        headers: getAuthHeaders()
       });
       if (response.ok) {
         setHistory([]);

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Upload, X, Download, Save, RefreshCw, AlertCircle, FileImage, ShieldAlert, CheckCircle2, XCircle, Info, Check } from 'lucide-react';
-import { API_BASE } from '../config';
+import { API_BASE, getAuthHeaders } from '../config';
 
 const RBI_SECURITY_MARKERS = {
   "₹10": [
@@ -80,7 +80,9 @@ export default function UploadPage({ apiConfigured }) {
   React.useEffect(() => {
     const loadDefaultSetting = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/settings`);
+        const response = await fetch(`${API_BASE}/api/settings`, {
+          headers: getAuthHeaders()
+        });
         if (response.ok) {
           const data = await response.json();
           setCounterfeitCheckEnabled(data.counterfeit_check_enabled ?? true);
@@ -201,6 +203,7 @@ export default function UploadPage({ apiConfigured }) {
       
       const response = await fetch(`${API_BASE}/api/detect-image`, {
         method: 'POST',
+        headers: getAuthHeaders(),
         body: formData
       });
       
@@ -249,7 +252,7 @@ export default function UploadPage({ apiConfigured }) {
     try {
       const response = await fetch(`${API_BASE}/api/history`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           total_amount: results.total_value,
           predictions: results.predictions,

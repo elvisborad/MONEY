@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Square, Volume2, VolumeX, Camera, Save, RefreshCw, AlertCircle, Sparkles, ShieldAlert, CheckCircle2, XCircle, Info, Check } from 'lucide-react';
-import { API_BASE } from '../config';
+import { API_BASE, getAuthHeaders } from '../config';
 
 const RBI_SECURITY_MARKERS = {
   "₹10": [
@@ -132,7 +132,9 @@ export default function DetectionPage({ apiConfigured }) {
   useEffect(() => {
     const fetchAudioSettings = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/settings`);
+        const response = await fetch(`${API_BASE}/api/settings`, {
+          headers: getAuthHeaders()
+        });
         if (response.ok) {
           const data = await response.json();
           setVoiceEnabled(data.voice_enabled ?? true);
@@ -365,7 +367,7 @@ export default function DetectionPage({ apiConfigured }) {
       try {
         const response = await fetch(`${API_BASE}/api/detect-frame`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ image: base64Frame })
         });
         
@@ -629,7 +631,7 @@ export default function DetectionPage({ apiConfigured }) {
       // Send to Flask history database
       const response = await fetch(`${API_BASE}/api/history`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           total_amount: stats.totalValue,
           predictions: accumulatedPredictionsRef.current,

@@ -1,10 +1,11 @@
 import os
 import io
 import base64
+from functools import wraps
 import numpy as np
 import cv2
 from PIL import Image
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -21,10 +22,93 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 # Initialize Database
 database.init_db()
 
+# Login Required Decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        token = None
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            
+        if not token:
+            return jsonify({'error': 'Unauthorized: Missing session token'}), 401
+            
+        user_id = database.verify_session(token)
+        if not user_id:
+            return jsonify({'error': 'Unauthorized: Invalid or expired session token'}), 401
+            
+        g.user_id = user_id
+        g.token = token
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Authentication Endpoints
+@app.route('/api/auth/register', methods=['POST'])
+def auth_register():
+    data = request.json or {}
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+        
+    if len(username) < 3 or len(password) < 4:
+        return jsonify({'error': 'Username must be >= 3 chars, password >= 4 chars'}), 400
+        
+    user_id = database.create_user(username, password)
+    if not user_id:
+        return jsonify({'error': 'Username is already taken'}), 409
+        
+    token = database.create_session(user_id)
+    return jsonify({
+        'message': 'Registration successful',
+        'token': token,
+        'username': username
+    }), 201
+
+@app.route('/api/auth/login', methods=['POST'])
+def auth_login():
+    data = request.json or {}
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return jsonify({'error': 'Username and password are required'}), 400
+        
+    user_id = database.verify_user(username, password)
+    if not user_id:
+        return jsonify({'error': 'Invalid username or password'}), 401
+        
+    token = database.create_session(user_id)
+    return jsonify({
+        'message': 'Login successful',
+        'token': token,
+        'username': username
+    }), 200
+
+@app.route('/api/auth/logout', methods=['POST'])
+@login_required
+def auth_logout():
+    database.delete_session(g.token)
+    return jsonify({'message': 'Logged out successfully'}), 200
+
+@app.route('/api/auth/me', methods=['GET'])
+@login_required
+def auth_me():
+    conn = database.get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT username FROM users WHERE id = ?', (g.user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return jsonify({'username': row['username']}), 200
+    return jsonify({'error': 'User not found'}), 404
+
 # Helper function to get Roboflow Client
-def get_roboflow_client():
+def get_roboflow_client(user_id):
     # 1. Check database setting first
-    api_key = database.get_setting('api_key')
+    api_key = database.get_setting(user_id, 'api_key')
     
     # 2. Fallback to environment variable
     if not api_key:
@@ -34,7 +118,7 @@ def get_roboflow_client():
         raise ValueError("Roboflow API Key not configured. Please go to Settings to add it.")
         
     # Get region setting
-    region = database.get_setting('region', 'us')
+    region = database.get_setting(user_id, 'region', 'us')
     api_url = "https://detect.roboflow.com"
     if region == "serverless":
         api_url = "https://serverless.roboflow.com"
@@ -54,7 +138,7 @@ def map_class_name(name):
         return f"₹{clean_name}"
     return f"₹{clean_name}"
 
-def process_roboflow_result(result, threshold=0.0, numpy_image=None, counterfeit_check=None):
+def process_roboflow_result(result, threshold=0.0, numpy_image=None, counterfeit_check=None, user_id=None):
     predictions = result.get('predictions', [])
     
     # We can handle format if it's nested or different
@@ -99,7 +183,7 @@ def process_roboflow_result(result, threshold=0.0, numpy_image=None, counterfeit
         if counterfeit_check is not None:
             counterfeit_check_enabled = (counterfeit_check is True or counterfeit_check == "1" or str(counterfeit_check).lower() == "true")
         else:
-            counterfeit_check_enabled = database.get_setting('counterfeit_check_enabled', '1') == '1'
+            counterfeit_check_enabled = database.get_setting(user_id, 'counterfeit_check_enabled', '1') == '1'
             
         if counterfeit_check_enabled:
             # Aspect Ratio check (rupee notes standard aspect ratio length/width is ~2.27)
@@ -290,6 +374,7 @@ def process_roboflow_result(result, threshold=0.0, numpy_image=None, counterfeit
 
 # 1. Detection Endpoint (Static Image Upload)
 @app.route('/api/detect-image', methods=['POST'])
+@login_required
 def detect_image():
     if 'image' not in request.files:
         return jsonify({"error": "No image file provided"}), 400
@@ -300,7 +385,7 @@ def detect_image():
         
     try:
         # Load API key and config
-        client = get_roboflow_client()
+        client = get_roboflow_client(g.user_id)
         
         # Read file in PIL
         image_bytes = image_file.read()
@@ -333,7 +418,7 @@ def detect_image():
         result = results[0] if isinstance(results, list) else results
         
         # Load threshold setting dynamically
-        threshold = float(database.get_setting('threshold', '0.5'))
+        threshold = float(database.get_setting(g.user_id, 'threshold', '0.5'))
         
         # Read override counterfeit setting from request form
         counterfeit_check = request.form.get('counterfeit_check', None)
@@ -342,7 +427,8 @@ def detect_image():
             result, 
             threshold=threshold, 
             numpy_image=numpy_image,
-            counterfeit_check=counterfeit_check
+            counterfeit_check=counterfeit_check,
+            user_id=g.user_id
         )
         
         return jsonify(processed_data)
@@ -356,13 +442,14 @@ def detect_image():
 
 # 2. Live frame inference endpoint (Optimized Browser Camera mode)
 @app.route('/api/detect-frame', methods=['POST'])
+@login_required
 def detect_frame():
     data = request.json
     if not data or 'image' not in data:
         return jsonify({"error": "No frame data provided"}), 400
         
     try:
-        client = get_roboflow_client()
+        client = get_roboflow_client(g.user_id)
         
         # Decode base64 image
         header, encoded = data['image'].split(",", 1) if "," in data['image'] else ("", data['image'])
@@ -392,8 +479,8 @@ def detect_frame():
         result = results[0] if isinstance(results, list) else results
         
         # Load threshold setting dynamically
-        threshold = float(database.get_setting('threshold', '0.5'))
-        processed_data = process_roboflow_result(result, threshold=threshold, numpy_image=numpy_image)
+        threshold = float(database.get_setting(g.user_id, 'threshold', '0.5'))
+        processed_data = process_roboflow_result(result, threshold=threshold, numpy_image=numpy_image, user_id=g.user_id)
         
         # Return only the predictions and counts to keep payloads small and latency ultra-low
         # The browser will draw bounding boxes dynamically over its own local video feed!
@@ -410,16 +497,17 @@ def detect_frame():
 
 # 3. Settings endpoints
 @app.route('/api/settings', methods=['GET'])
+@login_required
 def get_settings():
-    api_key = database.get_setting('api_key')
-    region = database.get_setting('region', 'us')
-    threshold = database.get_setting('threshold', '0.5')
-    voice_enabled = database.get_setting('voice_enabled', '1') == '1'
-    voice_rate = float(database.get_setting('voice_rate', '1.0'))
-    voice_pitch = float(database.get_setting('voice_pitch', '1.0'))
-    voice_voice_name = database.get_setting('voice_voice_name', '')
-    chime_enabled = database.get_setting('chime_enabled', '1') == '1'
-    counterfeit_check_enabled = database.get_setting('counterfeit_check_enabled', '1') == '1'
+    api_key = database.get_setting(g.user_id, 'api_key')
+    region = database.get_setting(g.user_id, 'region', 'us')
+    threshold = database.get_setting(g.user_id, 'threshold', '0.5')
+    voice_enabled = database.get_setting(g.user_id, 'voice_enabled', '1') == '1'
+    voice_rate = float(database.get_setting(g.user_id, 'voice_rate', '1.0'))
+    voice_pitch = float(database.get_setting(g.user_id, 'voice_pitch', '1.0'))
+    voice_voice_name = database.get_setting(g.user_id, 'voice_voice_name', '')
+    chime_enabled = database.get_setting(g.user_id, 'chime_enabled', '1') == '1'
+    counterfeit_check_enabled = database.get_setting(g.user_id, 'counterfeit_check_enabled', '1') == '1'
     
     # Mask API key for security
     masked_key = ""
@@ -443,6 +531,7 @@ def get_settings():
     })
 
 @app.route('/api/settings', methods=['POST'])
+@login_required
 def save_settings():
     data = request.json
     if not data:
@@ -452,29 +541,29 @@ def save_settings():
         new_key = data['api_key'].strip()
         # Only overwrite if it is not a masked placeholder
         if "..." not in new_key and new_key != "Configured":
-            database.set_setting('api_key', new_key)
+            database.set_setting(g.user_id, 'api_key', new_key)
             
     if 'region' in data:
-        database.set_setting('region', data['region'])
+        database.set_setting(g.user_id, 'region', data['region'])
         
     if 'threshold' in data:
         try:
             val = float(data['threshold'])
             if 0.0 <= val <= 1.0:
-                database.set_setting('threshold', val)
+                database.set_setting(g.user_id, 'threshold', val)
             else:
                 return jsonify({"error": "Threshold must be between 0 and 1"}), 400
         except ValueError:
             return jsonify({"error": "Invalid threshold value"}), 400
 
     if 'voice_enabled' in data:
-        database.set_setting('voice_enabled', '1' if data['voice_enabled'] else '0')
+        database.set_setting(g.user_id, 'voice_enabled', '1' if data['voice_enabled'] else '0')
         
     if 'voice_rate' in data:
         try:
             rate = float(data['voice_rate'])
             if 0.5 <= rate <= 2.0:
-                database.set_setting('voice_rate', rate)
+                database.set_setting(g.user_id, 'voice_rate', rate)
         except ValueError:
             pass
             
@@ -482,28 +571,30 @@ def save_settings():
         try:
             pitch = float(data['voice_pitch'])
             if 0.5 <= pitch <= 2.0:
-                database.set_setting('voice_pitch', pitch)
+                database.set_setting(g.user_id, 'voice_pitch', pitch)
         except ValueError:
             pass
             
     if 'voice_voice_name' in data:
-        database.set_setting('voice_voice_name', str(data['voice_voice_name']).strip())
+        database.set_setting(g.user_id, 'voice_voice_name', str(data['voice_voice_name']).strip())
         
     if 'chime_enabled' in data:
-        database.set_setting('chime_enabled', '1' if data['chime_enabled'] else '0')
+        database.set_setting(g.user_id, 'chime_enabled', '1' if data['chime_enabled'] else '0')
         
     if 'counterfeit_check_enabled' in data:
-        database.set_setting('counterfeit_check_enabled', '1' if data['counterfeit_check_enabled'] else '0')
+        database.set_setting(g.user_id, 'counterfeit_check_enabled', '1' if data['counterfeit_check_enabled'] else '0')
             
     return jsonify({"success": True, "message": "Settings saved successfully!"})
 
 # 4. History endpoints
 @app.route('/api/history', methods=['GET'])
+@login_required
 def get_history():
-    scans = database.get_scans(limit=100)
+    scans = database.get_scans(g.user_id, limit=100)
     return jsonify(scans)
 
 @app.route('/api/history', methods=['POST'])
+@login_required
 def save_history():
     data = request.json
     if not data:
@@ -520,6 +611,7 @@ def save_history():
         return jsonify({"error": "Cannot save scan history containing counterfeit or suspicious currency!"}), 400
         
     scan_id = database.save_scan(
+        user_id=g.user_id,
         total_amount=total_amount,
         predictions=predictions,
         counts=counts,
@@ -529,13 +621,15 @@ def save_history():
     return jsonify({"success": True, "scan_id": scan_id})
 
 @app.route('/api/history/<int:scan_id>', methods=['DELETE'])
+@login_required
 def delete_history_item(scan_id):
-    database.delete_scan(scan_id)
+    database.delete_scan(g.user_id, scan_id)
     return jsonify({"success": True})
 
 @app.route('/api/history/clear', methods=['POST'])
+@login_required
 def clear_history():
-    database.clear_scans()
+    database.clear_scans(g.user_id)
     return jsonify({"success": True})
 
 if __name__ == '__main__':

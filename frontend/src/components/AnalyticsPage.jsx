@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, PieChart as PieChartIcon, Activity, RefreshCw, TrendingUp } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, PieChart, Pie, AreaChart, Area } from 'recharts';
-import { API_BASE } from '../config';
+import { API_BASE, getAuthHeaders } from '../config';
 
 const COLORS = ['#39ff14', '#00f0ff', '#a855f7', '#ec4899', '#eab308', '#f97316', '#ef4444'];
 
@@ -15,7 +15,9 @@ export default function AnalyticsPage() {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/api/history`);
+      const response = await fetch(`${API_BASE}/api/history`, {
+        headers: getAuthHeaders()
+      });
       if (response.ok) {
         const data = await response.json();
         setHistory(data);
